@@ -8,23 +8,28 @@ aux_source_directory(./third-party/imgui CPP_LIST_IMGUI)
 add_executable(demo
         demo.cpp
         ${CPP_LIST_IMGUI}
-        demo.cpp demo2.cpp)
+        )
 
-# include package
+# include openGL
 find_package(OpenGL REQUIRED)
-
 set(DEPENDENCIES
         realsense2
         glfw
         ${OPENGL_LIBRARY})
 target_link_libraries(demo ${DEPENDENCIES} )
 
+# include opencv
+set(OpenCV_DIR /usr/local/share/OpenCV)
+find_package(OpenCV 3.4.0 REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+target_link_libraries(demo ${OpenCV_LIBS})
+
 # include directories
 include_directories(
         ./
         ./common
         ./third-party/
-        ./third-party/imgui/
+        ./third-party/imgui
         )
 
 
