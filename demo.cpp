@@ -7,19 +7,25 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 #include <chrono>
 
 // 3rd party header for writing png files
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-bool capture_flag = false;
-void on_button_press (int state, void* userdata) {
-    capture_flag = true;
-}
+enum class sts {
+    rgb,
+    depth
+};
 
+void save2disk (std::vector<cv::Mat> vec_mat, std::string stream_name, std::string parent_path);
 
 int main () {
+
+    // create vector for frames
+    std::vector<cv::Mat> vec_color;
+    std::vector<cv::Mat> vec_depth;
 
     // create a pipeline
     rs2::pipeline pipe = rs2::pipeline();
@@ -31,7 +37,7 @@ int main () {
     int depth_width = 640;
     int depth_height = 480;
     int rate = 30;
-    cfg.enable_stream(RS2_STREAM_COLOR, color_width, color_height, RS2_FORMAT_BGR8, rate);
+    cfg.enable_stream(RS2_STREAM_COLOR, color_width, color_height, RS2_FORMAT_RGB8, rate);
     cfg.enable_stream(RS2_STREAM_DEPTH, depth_width, depth_height, RS2_FORMAT_Z16, rate);
 
     // start shared pipeline with config
@@ -43,8 +49,6 @@ int main () {
     // define align object (align to color bcs color scene is smaller)
     rs2::align align_to_color(RS2_STREAM_COLOR);
 
-    // main loop
-    int i=0;
     while ( true ) {
 
         // start time
@@ -62,7 +66,7 @@ int main () {
         auto depth_frame = frameset.get_depth_frame();
 
         // time get frame
-        auto t_end_1 = std::chrono::high_resolution_clock::now();
+//        auto t_end_1 = std::chrono::high_resolution_clock::now();
 
         // get cv mat (Note that type is different)
         int rows = color_frame.get_height();
@@ -73,38 +77,22 @@ int main () {
         cv::Mat depth_img(rows, cols, CV_16UC1, (void *)depth_frame.get_data());
         cv::Mat color_img(rows, cols, CV_8UC3, (void *)color_frame.get_data());
 
+        // append to vector
+        vec_color.push_back(color_img);
+        vec_depth.push_back(depth_img);
+
         // open window
         cv::imshow("pc-demo", color_img);
-
-        // write to disk
-        std::string save_path = "/home/linrunfeng/Lab/data/shelter-demo";
-
-        std::string depth_path = save_path + "/depth/" + std::to_string(i) + ".png";
-        cv::imwrite(depth_path, depth_img);
-        std::cout << "Saved depth img " << i << ".png" << std::endl;
-
-        std::string color_path = save_path + "/rgb/" + std::to_string(i) + ".png";
-        cv::cvtColor(color_img, color_img, cv::COLOR_RGB2BGR);
-        cv::imwrite(color_path, color_img);
-        std::cout << "Saved color img " << i << ".png" << std::endl;
-
-        // time save
-        auto t_end_2 = std::chrono::high_resolution_clock::now();
-
-        // calculate time
-        auto dur_get = std::chrono::duration_cast<std::chrono::microseconds>(t_end_1-t_start).count();
-        auto dur_save = std::chrono::duration_cast<std::chrono::microseconds>(t_end_2-t_end_1).count();
-
-        std::cout << "Time get: " << dur_get << std::endl;
-        std::cout << "Time save: " << dur_save << std::endl;
-
-        // step forward
-        i++;
 
         // quit
         if (cv::waitKey(1) == 'q') break;
 
     }
+
+    // write to disk
+    std::string parent_path = "/home/linrunfeng/Lab/data/shelter-demo/";
+    save2disk(vec_color, "rgb", parent_path);
+    save2disk(vec_depth, "depth", parent_path);
 
     // stop pipeline
     pipe.stop();
@@ -112,4 +100,17 @@ int main () {
     // return
     return 0;
 
+}
+
+/*
+ *
+ */
+void save2disk (std::vector<cv::Mat> vec_mat, std::string stream_name, std::string parent_path) {
+    int i = 0;
+    for (auto& mat : vec_mat) {
+        std::string save_path = parent_path + stream_name + "/" + std::to_string(i) + ".png";
+        cv::imwrite(save_path, mat);
+        std::cout << "Saved " << stream_name << " img " << i << ".png" << std::endl;
+        i ++;
+    }
 }
